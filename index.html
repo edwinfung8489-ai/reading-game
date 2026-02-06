@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Hero - Learn to Read!</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="screen active">
+        <div class="container">
+            <h1 class="title">Reading Hero</h1>
+            <p class="subtitle">Practice reading words and sentences!</p>
+
+            <div class="input-section">
+                <label for="word-input">Enter words or sentences (one per line):</label>
+                <textarea
+                    id="word-input"
+                    placeholder="cat&#10;dog&#10;The cat is big&#10;I love to read"
+                    rows="8"
+                ></textarea>
+            </div>
+
+            <div class="settings-section">
+                <div class="setting">
+                    <label for="timer-setting">Time per word:</label>
+                    <select id="timer-setting">
+                        <option value="5">5 seconds</option>
+                        <option value="10" selected>10 seconds</option>
+                        <option value="15">15 seconds</option>
+                        <option value="20">20 seconds</option>
+                        <option value="30">30 seconds</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="puzzle-section">
+                <h3>Puzzle Reward (Optional)</h3>
+                <p class="puzzle-description">Upload an image to turn into a puzzle! Complete words to reveal pieces.</p>
+                <div class="puzzle-upload">
+                    <input type="file" id="puzzle-image-input" accept="image/*" hidden>
+                    <button id="upload-puzzle-btn" class="btn btn-small">Choose Image</button>
+                    <span id="puzzle-filename" class="puzzle-filename">No image selected</span>
+                </div>
+                <div id="puzzle-preview" class="puzzle-preview"></div>
+            </div>
+
+            <div class="saved-lists-section">
+                <h3>Saved Word Lists</h3>
+                <div id="saved-lists" class="saved-lists"></div>
+            </div>
+
+            <button id="start-btn" class="btn btn-primary">
+                Start Game
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <button id="home-btn" class="home-btn" title="Return to Home">
+            🏠
+        </button>
+
+        <div class="game-header">
+            <div class="score-display">
+                <span class="score-label">Score:</span>
+                <span id="score" class="score-value">0</span> / <span id="total">0</span>
+                <div id="score-popup" class="score-popup">+1</div>
+            </div>
+            <div class="progress-display">
+                Word <span id="current-num">1</span> of <span id="total-words">0</span>
+            </div>
+        </div>
+
+        <!-- Puzzle Progress -->
+        <div id="puzzle-container" class="puzzle-container">
+            <div id="puzzle-grid" class="puzzle-grid"></div>
+        </div>
+
+        <div class="timer-container">
+            <svg class="timer-ring" viewBox="0 0 100 100">
+                <circle class="timer-ring-bg" cx="50" cy="50" r="45"/>
+                <circle id="timer-ring-progress" class="timer-ring-progress" cx="50" cy="50" r="45"/>
+            </svg>
+            <div id="timer-text" class="timer-text">10</div>
+        </div>
+
+        <div id="word-display" class="word-display">
+            <span id="current-word" class="current-word">Hello</span>
+            <div id="word-progress" class="word-progress"></div>
+        </div>
+
+        <div class="mic-section">
+            <div id="mic-indicator" class="mic-indicator">
+                <div class="mic-icon">🎤</div>
+                <div class="mic-waves">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <p id="mic-status" class="mic-status">Listening...</p>
+            <p id="heard-text" class="heard-text"></p>
+        </div>
+
+        <div id="feedback" class="feedback"></div>
+
+        <button id="skip-btn" class="btn btn-secondary">Skip</button>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="results-screen" class="screen">
+        <div class="container results-container">
+            <div id="results-animation" class="results-animation"></div>
+            <h1 class="results-title">Great Job!</h1>
+
+            <div class="final-score">
+                <div class="score-circle">
+                    <span id="final-score">0</span>
+                    <span class="score-divider">/</span>
+                    <span id="final-total">0</span>
+                </div>
+                <p class="score-message" id="score-message">You're a Reading Star!</p>
+            </div>
+
+            <div class="results-details">
+                <div class="result-stat">
+                    <span class="stat-icon">✓</span>
+                    <span id="correct-count">0</span> Correct
+                </div>
+                <div class="result-stat">
+                    <span class="stat-icon">⏭</span>
+                    <span id="skipped-count">0</span> Skipped
+                </div>
+            </div>
+
+            <div id="missed-words-section" class="missed-words-section" style="display: none;">
+                <h3>Words to Practice</h3>
+                <ul id="missed-words-list" class="missed-words-list"></ul>
+            </div>
+
+            <div class="results-buttons">
+                <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+                <button id="new-words-btn" class="btn btn-secondary">New Words</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confetti container -->
+    <div id="confetti-container" class="confetti-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
