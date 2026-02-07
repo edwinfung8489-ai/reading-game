@@ -22,25 +22,81 @@
             <h1 class="title">Reading Hero</h1>
             <p class="subtitle">Practice reading words and sentences!</p>
 
+            <!-- Pre-made Word Lists -->
+            <div class="premade-lists-section">
+                <h3>Quick Start Word Lists</h3>
+                <div class="premade-lists">
+                    <button class="premade-list-btn" data-list="sight-words-k">
+                        <span class="list-icon">👀</span>
+                        <span class="list-name">Sight Words (K)</span>
+                    </button>
+                    <button class="premade-list-btn" data-list="sight-words-1">
+                        <span class="list-icon">📖</span>
+                        <span class="list-name">Sight Words (1st)</span>
+                    </button>
+                    <button class="premade-list-btn" data-list="cvc-words">
+                        <span class="list-icon">🔤</span>
+                        <span class="list-name">CVC Words</span>
+                    </button>
+                    <button class="premade-list-btn" data-list="simple-sentences">
+                        <span class="list-icon">💬</span>
+                        <span class="list-name">Simple Sentences</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="input-section">
-                <label for="word-input">Enter words or sentences (one per line):</label>
+                <label for="word-input">Or enter your own words/sentences (one per line):</label>
                 <textarea
                     id="word-input"
                     placeholder="cat&#10;dog&#10;The cat is big&#10;I love to read"
-                    rows="8"
+                    rows="6"
                 ></textarea>
             </div>
 
-            <div class="settings-section">
-                <div class="setting">
-                    <label for="timer-setting">Time per word:</label>
-                    <select id="timer-setting">
-                        <option value="5">5 seconds</option>
-                        <option value="10" selected>10 seconds</option>
-                        <option value="15">15 seconds</option>
-                        <option value="20">20 seconds</option>
-                        <option value="30">30 seconds</option>
-                    </select>
+            <!-- Difficulty Section -->
+            <div class="difficulty-section">
+                <h3>Difficulty Level</h3>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" data-difficulty="easy">
+                        <span class="diff-icon">🌟</span>
+                        <span class="diff-name">Easy</span>
+                        <span class="diff-desc">20s, relaxed matching</span>
+                    </button>
+                    <button class="difficulty-btn active" data-difficulty="medium">
+                        <span class="diff-icon">⭐</span>
+                        <span class="diff-name">Medium</span>
+                        <span class="diff-desc">10s, standard matching</span>
+                    </button>
+                    <button class="difficulty-btn" data-difficulty="hard">
+                        <span class="diff-icon">🏆</span>
+                        <span class="diff-name">Hard</span>
+                        <span class="diff-desc">5s, stricter matching</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Settings Row -->
+            <div class="settings-row">
+                <div class="settings-section">
+                    <div class="setting">
+                        <label for="timer-setting">Time per word:</label>
+                        <select id="timer-setting">
+                            <option value="5">5 seconds</option>
+                            <option value="10" selected>10 seconds</option>
+                            <option value="15">15 seconds</option>
+                            <option value="20">20 seconds</option>
+                            <option value="30">30 seconds</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="sound-toggle-section">
+                    <label class="sound-toggle">
+                        <input type="checkbox" id="sound-toggle" checked>
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">🔊 Sound</span>
+                    </label>
                 </div>
             </div>
 
@@ -60,6 +116,11 @@
                 <div id="saved-lists" class="saved-lists"></div>
             </div>
 
+            <!-- Parent Dashboard Button -->
+            <button id="dashboard-btn" class="btn btn-dashboard">
+                📊 Parent Dashboard
+            </button>
+
             <button id="start-btn" class="btn btn-primary">
                 Start Game
             </button>
@@ -72,15 +133,33 @@
             🏠
         </button>
 
+        <!-- Sound Toggle in Game -->
+        <button id="game-sound-toggle" class="game-sound-toggle" title="Toggle Sound">
+            🔊
+        </button>
+
         <div class="game-header">
             <div class="score-display">
                 <span class="score-label">Score:</span>
                 <span id="score" class="score-value">0</span> / <span id="total">0</span>
                 <div id="score-popup" class="score-popup">+1</div>
             </div>
+
+            <!-- Streak Counter -->
+            <div id="streak-container" class="streak-container" style="display: none;">
+                <span class="streak-fire">🔥</span>
+                <span id="streak-count" class="streak-count">0</span>
+            </div>
+
             <div class="progress-display">
                 Word <span id="current-num">1</span> of <span id="total-words">0</span>
             </div>
+        </div>
+
+        <!-- Character Buddy -->
+        <div id="character-buddy" class="character-buddy">
+            <div class="buddy-emoji">🦊</div>
+            <div id="buddy-speech" class="buddy-speech"></div>
         </div>
 
         <!-- Puzzle Progress -->
@@ -143,17 +222,83 @@
                     <span class="stat-icon">⏭</span>
                     <span id="skipped-count">0</span> Skipped
                 </div>
+                <div class="result-stat" id="best-streak-stat" style="display: none;">
+                    <span class="stat-icon">🔥</span>
+                    <span id="best-streak">0</span> Best Streak
+                </div>
             </div>
 
             <div id="missed-words-section" class="missed-words-section" style="display: none;">
                 <h3>Words to Practice</h3>
                 <ul id="missed-words-list" class="missed-words-list"></ul>
+                <button id="practice-missed-btn" class="btn btn-practice">
+                    🎯 Practice These Words
+                </button>
             </div>
 
             <div class="results-buttons">
                 <button id="play-again-btn" class="btn btn-primary">Play Again</button>
                 <button id="new-words-btn" class="btn btn-secondary">New Words</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Parent Dashboard Screen -->
+    <div id="dashboard-screen" class="screen">
+        <div class="container dashboard-container">
+            <button id="dashboard-back-btn" class="home-btn" title="Back">
+                ←
+            </button>
+            <h1 class="dashboard-title">Parent Dashboard</h1>
+
+            <div class="dashboard-summary">
+                <div class="summary-card">
+                    <span class="summary-icon">📚</span>
+                    <span id="total-sessions" class="summary-value">0</span>
+                    <span class="summary-label">Sessions</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-icon">✅</span>
+                    <span id="total-words-read" class="summary-value">0</span>
+                    <span class="summary-label">Words Read</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-icon">📈</span>
+                    <span id="avg-accuracy" class="summary-value">0%</span>
+                    <span class="summary-label">Avg. Accuracy</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-icon">🔥</span>
+                    <span id="all-time-streak" class="summary-value">0</span>
+                    <span class="summary-label">Best Streak</span>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <h3>Most Missed Words</h3>
+                <div id="most-missed-words" class="most-missed-words">
+                    <p class="no-data">No data yet. Complete a few sessions to see patterns.</p>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <h3>Recent Sessions</h3>
+                <div id="session-history" class="session-history">
+                    <p class="no-data">No sessions recorded yet.</p>
+                </div>
+            </div>
+
+            <div class="dashboard-actions">
+                <button id="clear-history-btn" class="btn btn-small btn-danger">Clear All Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Milestone Celebration Overlay -->
+    <div id="milestone-overlay" class="milestone-overlay" style="display: none;">
+        <div class="milestone-content">
+            <div id="milestone-emoji" class="milestone-emoji">🎉</div>
+            <div id="milestone-text" class="milestone-text">Amazing!</div>
         </div>
     </div>
 

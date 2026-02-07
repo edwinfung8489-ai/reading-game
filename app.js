@@ -12,14 +12,30 @@ class ReadingGame {
         this.timeRemaining = 10;
         this.timerInterval = null;
         this.isGameActive = false;
-        this.isProcessingAnswer = false; // Prevent double-triggering
+        this.isProcessingAnswer = false;
+
+        // Streak tracking
+        this.currentStreak = 0;
+        this.bestStreak = 0;
+        this.wrongInARow = 0;
+
+        // Difficulty settings
+        this.difficulty = 'medium';
+        this.difficultySettings = {
+            easy: { time: 20, matchThreshold: 0.5 },
+            medium: { time: 10, matchThreshold: 0.4 },
+            hard: { time: 5, matchThreshold: 0.25 }
+        };
+
+        // Sound settings
+        this.soundEnabled = true;
 
         // Speech recognition
         this.recognition = null;
         this.isListening = false;
         this.recognitionRestarting = false;
-        this.resultStartIndex = 0; // Track where to start reading results for current word
-        this.currentResultLength = 0; // Track total results received
+        this.resultStartIndex = 0;
+        this.currentResultLength = 0;
 
         // Puzzle state
         this.puzzleImage = null;
@@ -28,6 +44,37 @@ class ReadingGame {
 
         // Track missed words for review
         this.missedWords = [];
+
+        // Pre-made word lists
+        this.premadeLists = {
+            'sight-words-k': {
+                name: 'Kindergarten Sight Words',
+                words: ['the', 'and', 'a', 'to', 'said', 'it', 'he', 'she', 'was', 'for', 'on', 'are', 'as', 'with', 'his', 'they', 'I', 'at', 'be', 'this']
+            },
+            'sight-words-1': {
+                name: '1st Grade Sight Words',
+                words: ['have', 'from', 'or', 'one', 'had', 'by', 'word', 'but', 'not', 'what', 'all', 'were', 'we', 'when', 'your', 'can', 'an', 'each', 'which', 'their']
+            },
+            'cvc-words': {
+                name: 'CVC Words',
+                words: ['cat', 'dog', 'run', 'sit', 'hop', 'map', 'pen', 'bed', 'pig', 'fox', 'sun', 'cup', 'bat', 'hat', 'red', 'leg', 'bus', 'rug', 'pot', 'log']
+            },
+            'simple-sentences': {
+                name: 'Simple Sentences',
+                words: ['I see a cat', 'The dog is big', 'I can run fast', 'She is happy', 'We like to play', 'The sun is hot', 'I love my mom', 'He has a hat', 'We go to school', 'I can read']
+            }
+        };
+
+        // Character buddy messages
+        this.buddyMessages = {
+            start: ['Let\'s go!', 'You can do it!', 'I believe in you!'],
+            correct: ['Great job!', 'Awesome!', 'You\'re amazing!', 'Perfect!', 'Way to go!'],
+            streak3: ['🔥 On fire!', '3 in a row!', 'Keep it up!'],
+            streak5: ['⚡ Incredible!', '5 streak!', 'Unstoppable!'],
+            streak10: ['🌟 SUPERSTAR!', '10 streak!', 'LEGENDARY!'],
+            struggling: ['You got this!', 'Take your time!', 'Keep trying!', 'Almost there!'],
+            timeout: ['No worries!', 'Try the next one!', 'You\'ll get it!']
+        };
 
         // Audio context for sounds
         this.audioContext = null;
@@ -38,6 +85,7 @@ class ReadingGame {
             setupScreen: document.getElementById('setup-screen'),
             gameScreen: document.getElementById('game-screen'),
             resultsScreen: document.getElementById('results-screen'),
+            dashboardScreen: document.getElementById('dashboard-screen'),
 
             // Setup screen elements
             wordInput: document.getElementById('word-input'),
@@ -48,9 +96,12 @@ class ReadingGame {
             uploadPuzzleBtn: document.getElementById('upload-puzzle-btn'),
             puzzleFilename: document.getElementById('puzzle-filename'),
             puzzlePreview: document.getElementById('puzzle-preview'),
+            soundToggle: document.getElementById('sound-toggle'),
+            dashboardBtn: document.getElementById('dashboard-btn'),
 
             // Game screen elements
             homeBtn: document.getElementById('home-btn'),
+            gameSoundToggle: document.getElementById('game-sound-toggle'),
             score: document.getElementById('score'),
             scorePopup: document.getElementById('score-popup'),
             total: document.getElementById('total'),
@@ -68,6 +119,10 @@ class ReadingGame {
             skipBtn: document.getElementById('skip-btn'),
             puzzleContainer: document.getElementById('puzzle-container'),
             puzzleGrid: document.getElementById('puzzle-grid'),
+            streakContainer: document.getElementById('streak-container'),
+            streakCount: document.getElementById('streak-count'),
+            characterBuddy: document.getElementById('character-buddy'),
+            buddySpeech: document.getElementById('buddy-speech'),
 
             // Results screen elements
             finalScore: document.getElementById('final-score'),
@@ -75,12 +130,30 @@ class ReadingGame {
             scoreMessage: document.getElementById('score-message'),
             correctCount: document.getElementById('correct-count'),
             skippedCount: document.getElementById('skipped-count'),
+            bestStreakStat: document.getElementById('best-streak-stat'),
+            bestStreak: document.getElementById('best-streak'),
             playAgainBtn: document.getElementById('play-again-btn'),
             newWordsBtn: document.getElementById('new-words-btn'),
+            practiceMissedBtn: document.getElementById('practice-missed-btn'),
 
             // Review section on results
             missedWordsList: document.getElementById('missed-words-list'),
             missedWordsSection: document.getElementById('missed-words-section'),
+
+            // Dashboard elements
+            dashboardBackBtn: document.getElementById('dashboard-back-btn'),
+            totalSessions: document.getElementById('total-sessions'),
+            totalWordsRead: document.getElementById('total-words-read'),
+            avgAccuracy: document.getElementById('avg-accuracy'),
+            allTimeStreak: document.getElementById('all-time-streak'),
+            mostMissedWords: document.getElementById('most-missed-words'),
+            sessionHistory: document.getElementById('session-history'),
+            clearHistoryBtn: document.getElementById('clear-history-btn'),
+
+            // Milestone overlay
+            milestoneOverlay: document.getElementById('milestone-overlay'),
+            milestoneEmoji: document.getElementById('milestone-emoji'),
+            milestoneText: document.getElementById('milestone-text'),
 
             // Other
             confettiContainer: document.getElementById('confetti-container')
@@ -93,28 +166,130 @@ class ReadingGame {
         this.initSpeechRecognition();
         this.initAudio();
         this.loadSavedLists();
+        this.loadSettings();
         this.bindEvents();
         this.requestMicrophonePermission();
     }
 
+    loadSettings() {
+        // Load sound preference
+        const soundPref = localStorage.getItem('soundEnabled');
+        if (soundPref !== null) {
+            this.soundEnabled = soundPref === 'true';
+            this.elements.soundToggle.checked = this.soundEnabled;
+        }
+
+        // Load difficulty
+        const diffPref = localStorage.getItem('difficulty');
+        if (diffPref && this.difficultySettings[diffPref]) {
+            this.setDifficulty(diffPref);
+        }
+    }
+
+    setDifficulty(level) {
+        this.difficulty = level;
+        const settings = this.difficultySettings[level];
+        this.timerDuration = settings.time;
+        this.elements.timerSetting.value = settings.time.toString();
+
+        // Update UI
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.difficulty === level);
+        });
+
+        localStorage.setItem('difficulty', level);
+    }
+
     async requestMicrophonePermission() {
-        // Request microphone permission with settings optimized for child's voice
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
-                    autoGainControl: true, // Helps with quieter voices
+                    autoGainControl: true,
                     channelCount: 1,
-                    sampleRate: 48000, // Higher sample rate for better clarity
+                    sampleRate: 48000,
                 }
             });
-            // Permission granted - stop the stream since we don't need it yet
             stream.getTracks().forEach(track => track.stop());
             console.log('Microphone permission granted');
         } catch (err) {
             console.log('Microphone permission denied or error:', err);
         }
+    }
+
+    // ==================== Character Buddy ====================
+
+    showBuddyMessage(type, customMessage = null) {
+        const messages = this.buddyMessages[type];
+        const message = customMessage || messages[Math.floor(Math.random() * messages.length)];
+
+        this.elements.buddySpeech.textContent = message;
+        this.elements.buddySpeech.classList.add('show');
+        this.elements.characterBuddy.classList.add('bounce');
+
+        setTimeout(() => {
+            this.elements.buddySpeech.classList.remove('show');
+            this.elements.characterBuddy.classList.remove('bounce');
+        }, 2000);
+    }
+
+    // ==================== Milestone Celebrations ====================
+
+    showMilestone(count) {
+        let emoji, text;
+
+        if (count === 5) {
+            emoji = '⭐';
+            text = '5 Correct!';
+        } else if (count === 10) {
+            emoji = '🌟';
+            text = '10 Correct!';
+        } else if (count === 15) {
+            emoji = '🏆';
+            text = '15 Correct!';
+        } else if (count === 20) {
+            emoji = '👑';
+            text = '20 Correct!';
+        } else {
+            return;
+        }
+
+        this.elements.milestoneEmoji.textContent = emoji;
+        this.elements.milestoneText.textContent = text;
+        this.elements.milestoneOverlay.style.display = 'flex';
+
+        if (this.soundEnabled) {
+            this.playMilestoneSound();
+        }
+
+        setTimeout(() => {
+            this.elements.milestoneOverlay.style.display = 'none';
+        }, 1500);
+    }
+
+    playMilestoneSound() {
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const ctx = this.audioContext;
+        const now = ctx.currentTime;
+
+        // Celebratory chord
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.2, now + 0.05);
+            gain.gain.linearRampToValueAtTime(0, now + 0.8);
+            osc.start(now);
+            osc.stop(now + 1);
+        });
     }
 
     // ==================== Speech Recognition ====================
@@ -142,13 +317,10 @@ class ReadingGame {
         };
 
         this.recognition.onresult = (event) => {
-            // Track current result length for next word
             this.currentResultLength = event.results.length;
 
             if (!this.isGameActive) return;
 
-            // Only look at NEW results since we started listening for this word
-            // Use resultStartIndex to ignore old results from previous words
             let currentTranscript = '';
 
             for (let i = this.resultStartIndex; i < event.results.length; i++) {
@@ -158,7 +330,6 @@ class ReadingGame {
 
             currentTranscript = currentTranscript.trim();
 
-            // Update display and check answer with ONLY current word's transcript
             if (currentTranscript) {
                 this.elements.heardText.textContent = `I heard: "${currentTranscript}"`;
                 this.checkAnswer(currentTranscript);
@@ -168,18 +339,12 @@ class ReadingGame {
         this.recognition.onerror = (event) => {
             console.log('Speech recognition error:', event.error);
 
-            // Don't restart on abort - that's intentional
-            if (event.error === 'aborted') {
-                return;
-            }
+            if (event.error === 'aborted') return;
 
-            // For no-speech or audio-capture errors, schedule a restart
             if (event.error === 'no-speech' || event.error === 'audio-capture') {
                 this.elements.micStatus.textContent = 'No speech detected, still listening...';
-                // The onend handler will restart it
             }
 
-            // For not-allowed error, show helpful message
             if (event.error === 'not-allowed') {
                 this.elements.micStatus.textContent = 'Microphone blocked - check browser permissions';
                 this.elements.heardText.textContent = 'Please allow microphone access and refresh the page';
@@ -187,13 +352,11 @@ class ReadingGame {
         };
 
         this.recognition.onend = () => {
-            console.log('Speech recognition ended, isGameActive:', this.isGameActive, 'isListening:', this.isListening);
+            console.log('Speech recognition ended, isGameActive:', this.isGameActive);
             this.isListening = false;
 
-            // Only restart if game is active and we're not already restarting
             if (this.isGameActive && !this.recognitionRestarting) {
                 this.recognitionRestarting = true;
-                // Small delay to prevent rapid restart loops
                 setTimeout(() => {
                     if (this.isGameActive) {
                         this.startListening();
@@ -204,24 +367,12 @@ class ReadingGame {
     }
 
     startListening() {
-        if (!this.recognition) {
-            console.log('No recognition available');
-            return;
-        }
-
-        // Don't start if already listening
-        if (this.isListening) {
-            console.log('Already listening, skipping start');
-            return;
-        }
+        if (!this.recognition) return;
+        if (this.isListening) return;
 
         try {
-            console.log('Starting speech recognition...');
             this.recognition.start();
-            // isListening will be set in onstart handler
         } catch (e) {
-            console.log('Start error:', e.message);
-            // If already started, that's fine
             if (e.message.includes('already started')) {
                 this.isListening = true;
             }
@@ -231,11 +382,10 @@ class ReadingGame {
     stopListening() {
         if (!this.recognition) return;
 
-        console.log('Stopping speech recognition...');
-        this.recognitionRestarting = false; // Prevent auto-restart
+        this.recognitionRestarting = false;
 
         try {
-            this.recognition.abort(); // Use abort instead of stop for cleaner shutdown
+            this.recognition.abort();
         } catch (e) {
             console.log('Stop error:', e.message);
         }
@@ -245,17 +395,13 @@ class ReadingGame {
         this.elements.micStatus.textContent = 'Microphone off';
     }
 
-    // Reset tracking for a new word WITHOUT restarting recognition
     resetForNewWord() {
-        // Set the start index to current length, so we ignore all previous results
         this.resultStartIndex = this.currentResultLength;
-        console.log('Reset for new word, starting from index:', this.resultStartIndex);
     }
 
     // ==================== Audio (Sound Effects) ====================
 
     initAudio() {
-        // Create audio context on first user interaction
         document.addEventListener('click', () => {
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -264,6 +410,8 @@ class ReadingGame {
     }
 
     playSound(type) {
+        if (!this.soundEnabled) return;
+
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -284,69 +432,74 @@ class ReadingGame {
             case 'gameComplete':
                 this.playGameCompleteSound(ctx, now);
                 break;
+            case 'streak':
+                this.playStreakSound(ctx, now);
+                break;
         }
     }
 
     playSuccessSound(ctx, now) {
-        // Cheerful ascending arpeggio
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        const notes = [523.25, 659.25, 783.99, 1046.50];
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-
             osc.connect(gain);
             gain.connect(ctx.destination);
-
             osc.type = 'sine';
             osc.frequency.value = freq;
-
             gain.gain.setValueAtTime(0, now + i * 0.1);
             gain.gain.linearRampToValueAtTime(0.3, now + i * 0.1 + 0.05);
             gain.gain.linearRampToValueAtTime(0, now + i * 0.1 + 0.3);
-
             osc.start(now + i * 0.1);
             osc.stop(now + i * 0.1 + 0.4);
         });
     }
 
+    playStreakSound(ctx, now) {
+        // Higher pitched, more exciting sound
+        const notes = [659.25, 783.99, 1046.50, 1318.51];
+        notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, now + i * 0.08);
+            gain.gain.linearRampToValueAtTime(0.25, now + i * 0.08 + 0.03);
+            gain.gain.linearRampToValueAtTime(0, now + i * 0.08 + 0.2);
+            osc.start(now + i * 0.08);
+            osc.stop(now + i * 0.08 + 0.3);
+        });
+    }
+
     playTryAgainSound(ctx, now) {
-        // Gentle low tone
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
         osc.connect(gain);
         gain.connect(ctx.destination);
-
         osc.type = 'sine';
         osc.frequency.value = 220;
-
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.linearRampToValueAtTime(0, now + 0.4);
-
         osc.start(now);
         osc.stop(now + 0.5);
     }
 
     playTickSound(ctx, now) {
-        // Quick beep for countdown
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
         osc.connect(gain);
         gain.connect(ctx.destination);
-
         osc.type = 'sine';
         osc.frequency.value = 880;
-
         gain.gain.setValueAtTime(0.1, now);
         gain.gain.linearRampToValueAtTime(0, now + 0.1);
-
         osc.start(now);
         osc.stop(now + 0.15);
     }
 
     playGameCompleteSound(ctx, now) {
-        // Celebration fanfare
         const melody = [
             { freq: 523.25, time: 0 },
             { freq: 659.25, time: 0.15 },
@@ -359,17 +512,13 @@ class ReadingGame {
         melody.forEach(note => {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-
             osc.connect(gain);
             gain.connect(ctx.destination);
-
             osc.type = 'triangle';
             osc.frequency.value = note.freq;
-
             gain.gain.setValueAtTime(0, now + note.time);
             gain.gain.linearRampToValueAtTime(0.25, now + note.time + 0.05);
             gain.gain.linearRampToValueAtTime(0, now + note.time + 0.25);
-
             osc.start(now + note.time);
             osc.stop(now + note.time + 0.3);
         });
@@ -377,14 +526,19 @@ class ReadingGame {
 
     // ==================== Game Logic ====================
 
-    startGame() {
-        const input = this.elements.wordInput.value.trim();
+    startGame(wordsOverride = null) {
+        let input;
+        if (wordsOverride) {
+            input = wordsOverride.join('\n');
+        } else {
+            input = this.elements.wordInput.value.trim();
+        }
+
         if (!input) {
             alert('Please enter some words or sentences to practice!');
             return;
         }
 
-        // Parse words (split by newlines, filter empty)
         this.words = input.split('\n')
             .map(w => w.trim())
             .filter(w => w.length > 0);
@@ -394,13 +548,12 @@ class ReadingGame {
             return;
         }
 
-        // Randomize the word order
         this.shuffleArray(this.words);
 
-        // Save the word list
-        this.saveCurrentList();
+        if (!wordsOverride) {
+            this.saveCurrentList();
+        }
 
-        // Get timer setting
         this.timerDuration = parseInt(this.elements.timerSetting.value);
 
         // Reset game state
@@ -408,18 +561,25 @@ class ReadingGame {
         this.score = 0;
         this.skipped = 0;
         this.missedWords = [];
+        this.currentStreak = 0;
+        this.bestStreak = 0;
+        this.wrongInARow = 0;
         this.isGameActive = true;
 
         // Update UI
         this.elements.total.textContent = this.words.length;
         this.elements.totalWords.textContent = this.words.length;
         this.updateScore();
+        this.updateStreakDisplay();
 
         // Initialize puzzle if image is uploaded
         this.initPuzzle();
 
         // Switch to game screen
         this.showScreen('game');
+
+        // Show start message from buddy
+        this.showBuddyMessage('start');
 
         // Start the game
         this.showCurrentWord();
@@ -432,25 +592,19 @@ class ReadingGame {
             return;
         }
 
-        // Reset the processing lock for the new word
         this.isProcessingAnswer = false;
-
-        // Reset tracking to ignore previous word's transcript (without restarting recognition)
         this.resetForNewWord();
 
-        // Update word display
         const word = this.words[this.currentIndex];
         this.elements.currentWord.textContent = word;
         this.elements.currentNum.textContent = this.currentIndex + 1;
 
-        // Clear feedback, heard text, and word progress
         this.elements.feedback.textContent = '';
         this.elements.feedback.className = 'feedback';
         this.elements.heardText.textContent = '';
         this.elements.wordProgress.innerHTML = '';
         this.elements.wordDisplay.classList.remove('success', 'error');
 
-        // Start timer
         this.startTimer();
     }
 
@@ -458,7 +612,6 @@ class ReadingGame {
         this.timeRemaining = this.timerDuration;
         this.updateTimerDisplay();
 
-        // Clear any existing timer
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
         }
@@ -467,7 +620,6 @@ class ReadingGame {
             this.timeRemaining--;
             this.updateTimerDisplay();
 
-            // Play tick sound in last 3 seconds
             if (this.timeRemaining <= 3 && this.timeRemaining > 0) {
                 this.playSound('tick');
             }
@@ -481,12 +633,10 @@ class ReadingGame {
     updateTimerDisplay() {
         this.elements.timerText.textContent = this.timeRemaining;
 
-        // Update ring progress
-        const circumference = 283; // 2 * PI * 45
+        const circumference = 283;
         const progress = (this.timeRemaining / this.timerDuration) * circumference;
         this.elements.timerRingProgress.style.strokeDashoffset = circumference - progress;
 
-        // Update color based on time remaining
         const ring = this.elements.timerRingProgress;
         ring.classList.remove('warning', 'danger');
 
@@ -500,17 +650,25 @@ class ReadingGame {
     handleTimeout() {
         clearInterval(this.timerInterval);
 
-        // Track missed word
         this.missedWords.push(this.words[this.currentIndex]);
+        this.currentStreak = 0;
+        this.wrongInARow++;
 
-        // Show timeout feedback
+        // Check if struggling
+        if (this.wrongInARow >= 2) {
+            this.showBuddyMessage('struggling');
+        } else {
+            this.showBuddyMessage('timeout');
+        }
+
+        this.updateStreakDisplay();
+
         this.elements.feedback.textContent = "Time's up! Let's try the next one.";
         this.elements.feedback.className = 'feedback try-again';
         this.playSound('tryAgain');
 
         this.skipped++;
 
-        // Move to next word after a short delay
         setTimeout(() => {
             this.currentIndex++;
             this.showCurrentWord();
@@ -518,37 +676,28 @@ class ReadingGame {
     }
 
     checkAnswer(spokenText) {
-        // Prevent double-triggering while processing an answer
-        if (this.isProcessingAnswer) {
-            return;
-        }
+        if (this.isProcessingAnswer) return;
 
         const target = this.words[this.currentIndex].toLowerCase().trim();
         const spoken = spokenText.toLowerCase().trim();
 
-        // Update word progress display for sentences
         this.updateWordProgress(spoken, target);
 
-        // Fuzzy matching - check if the target phrase is contained in what was spoken
-        // Also check for similar words (allowing for minor pronunciation differences)
         if (this.isMatch(spoken, target)) {
-            this.isProcessingAnswer = true; // Lock to prevent double-trigger
+            this.isProcessingAnswer = true;
             this.handleCorrectAnswer();
         }
     }
 
-    // Show which words have been matched so far (for sentences)
     updateWordProgress(spoken, target) {
         const targetWords = this.normalizeText(target).split(' ');
         const spokenWords = this.normalizeText(spoken).split(' ');
 
-        // Only show progress for sentences (multiple words)
         if (targetWords.length <= 1) {
             this.elements.wordProgress.innerHTML = '';
             return;
         }
 
-        // Find how many words have been matched
         let matchedCount = 0;
         for (const spokenWord of spokenWords) {
             if (matchedCount < targetWords.length && this.wordsSimilar(spokenWord, targetWords[matchedCount])) {
@@ -556,7 +705,6 @@ class ReadingGame {
             }
         }
 
-        // Build progress display
         const progressHtml = targetWords.map((word, index) => {
             if (index < matchedCount) {
                 return `<span class="word-matched">✓ ${word}</span>`;
@@ -570,7 +718,6 @@ class ReadingGame {
         this.elements.wordProgress.innerHTML = progressHtml;
     }
 
-    // Fisher-Yates shuffle algorithm
     shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -580,7 +727,6 @@ class ReadingGame {
     }
 
     isMatch(spoken, target) {
-        // Normalize both strings
         const normalizedSpoken = this.normalizeText(spoken);
         const normalizedTarget = this.normalizeText(target);
 
@@ -588,40 +734,34 @@ class ReadingGame {
         const spokenWords = normalizedSpoken.split(' ');
         const isSentence = targetWords.length > 1;
 
-        // For sentences: require ALL words to be spoken (with fuzzy matching per word)
+        // Get match threshold based on difficulty
+        const threshold = this.difficultySettings[this.difficulty].matchThreshold;
+
         if (isSentence) {
-            // Must have spoken at least as many words as the target
             if (spokenWords.length < targetWords.length) {
                 return false;
             }
 
-            // Check if all target words appear in spoken words (in order)
             let targetIndex = 0;
             for (const spokenWord of spokenWords) {
-                if (targetIndex < targetWords.length && this.wordsSimilar(spokenWord, targetWords[targetIndex])) {
+                if (targetIndex < targetWords.length && this.wordsSimilar(spokenWord, targetWords[targetIndex], threshold)) {
                     targetIndex++;
                 }
             }
 
-            // All words must match for sentences
             return targetIndex === targetWords.length;
         }
 
-        // For single words: be lenient with pronunciation
-        // Direct match
         if (normalizedSpoken.includes(normalizedTarget)) {
             return true;
         }
 
-        // Check each spoken word for a match
         for (const spokenWord of spokenWords) {
-            // Relaxed Levenshtein - allow up to 40% of characters to be different
-            const maxDistance = Math.max(1, Math.ceil(normalizedTarget.length * 0.4));
+            const maxDistance = Math.max(1, Math.ceil(normalizedTarget.length * threshold));
             if (this.levenshteinDistance(spokenWord, normalizedTarget) <= maxDistance) {
                 return true;
             }
 
-            // Check phonetic similarity - common kid pronunciation variations
             if (this.phoneticallyClose(spokenWord, normalizedTarget)) {
                 return true;
             }
@@ -630,25 +770,12 @@ class ReadingGame {
         return false;
     }
 
-    // Check for common phonetic variations kids make
     phoneticallyClose(spoken, target) {
-        // Common substitutions kids make
         const substitutions = [
-            ['th', 'd'],   // "the" -> "de"
-            ['th', 'f'],   // "three" -> "free"
-            ['r', 'w'],    // "red" -> "wed"
-            ['l', 'w'],    // "little" -> "wittle"
-            ['s', 'th'],   // lisp
-            ['ch', 'sh'],
-            ['j', 'ch'],
-            ['v', 'b'],
-            ['ing', 'in'], // "running" -> "runnin"
+            ['th', 'd'], ['th', 'f'], ['r', 'w'], ['l', 'w'],
+            ['s', 'th'], ['ch', 'sh'], ['j', 'ch'], ['v', 'b'], ['ing', 'in']
         ];
 
-        let modifiedTarget = target;
-        let modifiedSpoken = spoken;
-
-        // Try each substitution both ways
         for (const [a, b] of substitutions) {
             const targetWithSub = target.replace(new RegExp(a, 'g'), b);
             const spokenWithSub = spoken.replace(new RegExp(b, 'g'), a);
@@ -657,13 +784,11 @@ class ReadingGame {
                 return true;
             }
 
-            // Also check with Levenshtein after substitution
             if (this.levenshteinDistance(spoken, targetWithSub) <= 1) {
                 return true;
             }
         }
 
-        // Check if spoken word sounds similar (same consonant structure)
         const spokenConsonants = spoken.replace(/[aeiou]/g, '');
         const targetConsonants = target.replace(/[aeiou]/g, '');
         if (spokenConsonants === targetConsonants && spokenConsonants.length >= 2) {
@@ -676,21 +801,20 @@ class ReadingGame {
     normalizeText(text) {
         return text
             .toLowerCase()
-            .replace(/[^\w\s]/g, '') // Remove punctuation
-            .replace(/\s+/g, ' ')    // Normalize spaces
+            .replace(/[^\w\s]/g, '')
+            .replace(/\s+/g, ' ')
             .trim();
     }
 
-    wordsSimilar(word1, word2) {
+    wordsSimilar(word1, word2, threshold = null) {
         if (word1 === word2) return true;
 
-        // Very relaxed for young children - allow up to 40% difference
-        const maxDistance = Math.max(2, Math.ceil(Math.min(word1.length, word2.length) * 0.4));
+        const t = threshold || this.difficultySettings[this.difficulty].matchThreshold;
+        const maxDistance = Math.max(2, Math.ceil(Math.min(word1.length, word2.length) * t));
         if (this.levenshteinDistance(word1, word2) <= maxDistance) {
             return true;
         }
 
-        // Also check phonetic similarity
         if (this.phoneticallyClose(word1, word2)) {
             return true;
         }
@@ -727,31 +851,47 @@ class ReadingGame {
     }
 
     handleCorrectAnswer() {
-        // Stop timer
         clearInterval(this.timerInterval);
 
-        // Highlight the word
         this.elements.currentWord.classList.add('highlighted');
 
-        // Update score with animation
         this.score++;
-        this.updateScoreWithAnimation();
+        this.currentStreak++;
+        this.wrongInARow = 0;
 
-        // Show success feedback
+        if (this.currentStreak > this.bestStreak) {
+            this.bestStreak = this.currentStreak;
+        }
+
+        this.updateScoreWithAnimation();
+        this.updateStreakDisplay();
+
+        // Show buddy message based on streak
+        if (this.currentStreak === 10) {
+            this.showBuddyMessage('streak10');
+            this.playSound('streak');
+        } else if (this.currentStreak === 5) {
+            this.showBuddyMessage('streak5');
+            this.playSound('streak');
+        } else if (this.currentStreak === 3) {
+            this.showBuddyMessage('streak3');
+        } else {
+            this.showBuddyMessage('correct');
+        }
+
+        // Check for milestones
+        if ([5, 10, 15, 20].includes(this.score)) {
+            this.showMilestone(this.score);
+        }
+
         this.elements.feedback.textContent = '🎉 Awesome! Great job!';
         this.elements.feedback.className = 'feedback success';
         this.elements.wordDisplay.classList.add('success');
 
-        // Play success sound
         this.playSound('success');
-
-        // Create star burst animation
         this.createStarBurst();
-
-        // Reveal a puzzle piece
         this.revealPuzzlePiece();
 
-        // Move to next word after animation
         setTimeout(() => {
             this.elements.currentWord.classList.remove('highlighted');
             this.currentIndex++;
@@ -764,26 +904,44 @@ class ReadingGame {
     }
 
     updateScoreWithAnimation() {
-        // Update the score
         this.elements.score.textContent = this.score;
 
-        // Add bump animation to score
         this.elements.score.classList.add('bump');
         setTimeout(() => {
             this.elements.score.classList.remove('bump');
         }, 400);
 
-        // Show +1 popup
         this.elements.scorePopup.classList.remove('show');
-        // Force reflow to restart animation
         void this.elements.scorePopup.offsetWidth;
         this.elements.scorePopup.classList.add('show');
+    }
+
+    updateStreakDisplay() {
+        if (this.currentStreak >= 2) {
+            this.elements.streakContainer.style.display = 'flex';
+            this.elements.streakCount.textContent = this.currentStreak;
+            this.elements.streakContainer.classList.add('pulse');
+            setTimeout(() => {
+                this.elements.streakContainer.classList.remove('pulse');
+            }, 500);
+        } else {
+            this.elements.streakContainer.style.display = 'none';
+        }
     }
 
     skipWord() {
         clearInterval(this.timerInterval);
         this.missedWords.push(this.words[this.currentIndex]);
+        this.currentStreak = 0;
+        this.wrongInARow++;
         this.skipped++;
+
+        this.updateStreakDisplay();
+
+        // Check if struggling
+        if (this.wrongInARow >= 2) {
+            this.showBuddyMessage('struggling');
+        }
 
         this.elements.feedback.textContent = 'Skipped! Moving on...';
         this.elements.feedback.className = 'feedback try-again';
@@ -799,13 +957,23 @@ class ReadingGame {
         this.stopListening();
         clearInterval(this.timerInterval);
 
+        // Save session to history
+        this.saveSession();
+
         // Update results
         this.elements.finalScore.textContent = this.score;
         this.elements.finalTotal.textContent = this.words.length;
         this.elements.correctCount.textContent = this.score;
         this.elements.skippedCount.textContent = this.skipped;
 
-        // Set score message based on performance
+        // Show best streak if > 0
+        if (this.bestStreak > 0) {
+            this.elements.bestStreakStat.style.display = 'flex';
+            this.elements.bestStreak.textContent = this.bestStreak;
+        } else {
+            this.elements.bestStreakStat.style.display = 'none';
+        }
+
         const percentage = (this.score / this.words.length) * 100;
         let message = '';
         if (percentage === 100) {
@@ -821,7 +989,6 @@ class ReadingGame {
         }
         this.elements.scoreMessage.textContent = message;
 
-        // Show missed words for review
         if (this.missedWords.length > 0) {
             this.elements.missedWordsSection.style.display = 'block';
             this.elements.missedWordsList.innerHTML = this.missedWords
@@ -831,15 +998,107 @@ class ReadingGame {
             this.elements.missedWordsSection.style.display = 'none';
         }
 
-        // Play completion sound
         this.playSound('gameComplete');
-
-        // Show results screen
         this.showScreen('results');
 
-        // Create confetti for good scores
         if (percentage >= 60) {
             this.createConfetti();
+        }
+    }
+
+    // ==================== Session History & Dashboard ====================
+
+    saveSession() {
+        const session = {
+            date: new Date().toISOString(),
+            score: this.score,
+            total: this.words.length,
+            skipped: this.skipped,
+            bestStreak: this.bestStreak,
+            missedWords: [...this.missedWords],
+            accuracy: Math.round((this.score / this.words.length) * 100)
+        };
+
+        const history = JSON.parse(localStorage.getItem('sessionHistory') || '[]');
+        history.unshift(session);
+
+        // Keep last 50 sessions
+        if (history.length > 50) {
+            history.pop();
+        }
+
+        localStorage.setItem('sessionHistory', JSON.stringify(history));
+
+        // Update all-time best streak
+        const allTimeBest = parseInt(localStorage.getItem('allTimeBestStreak') || '0');
+        if (this.bestStreak > allTimeBest) {
+            localStorage.setItem('allTimeBestStreak', this.bestStreak.toString());
+        }
+    }
+
+    loadDashboard() {
+        const history = JSON.parse(localStorage.getItem('sessionHistory') || '[]');
+
+        if (history.length === 0) {
+            this.elements.totalSessions.textContent = '0';
+            this.elements.totalWordsRead.textContent = '0';
+            this.elements.avgAccuracy.textContent = '0%';
+            this.elements.allTimeStreak.textContent = '0';
+            this.elements.mostMissedWords.innerHTML = '<p class="no-data">No data yet.</p>';
+            this.elements.sessionHistory.innerHTML = '<p class="no-data">No sessions recorded yet.</p>';
+            return;
+        }
+
+        // Calculate stats
+        const totalSessions = history.length;
+        const totalWords = history.reduce((sum, s) => sum + s.total, 0);
+        const totalCorrect = history.reduce((sum, s) => sum + s.score, 0);
+        const avgAccuracy = Math.round((totalCorrect / totalWords) * 100);
+        const allTimeBest = localStorage.getItem('allTimeBestStreak') || '0';
+
+        this.elements.totalSessions.textContent = totalSessions;
+        this.elements.totalWordsRead.textContent = totalWords;
+        this.elements.avgAccuracy.textContent = avgAccuracy + '%';
+        this.elements.allTimeStreak.textContent = allTimeBest;
+
+        // Most missed words
+        const missedCount = {};
+        history.forEach(s => {
+            s.missedWords.forEach(word => {
+                missedCount[word] = (missedCount[word] || 0) + 1;
+            });
+        });
+
+        const sortedMissed = Object.entries(missedCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+
+        if (sortedMissed.length > 0) {
+            this.elements.mostMissedWords.innerHTML = sortedMissed
+                .map(([word, count]) => `<div class="missed-word-item"><span class="word">${word}</span><span class="count">${count}x</span></div>`)
+                .join('');
+        } else {
+            this.elements.mostMissedWords.innerHTML = '<p class="no-data">No missed words yet. Great job!</p>';
+        }
+
+        // Session history
+        this.elements.sessionHistory.innerHTML = history.slice(0, 10)
+            .map(s => {
+                const date = new Date(s.date).toLocaleDateString();
+                return `<div class="session-item">
+                    <span class="session-date">${date}</span>
+                    <span class="session-score">${s.score}/${s.total}</span>
+                    <span class="session-accuracy">${s.accuracy}%</span>
+                </div>`;
+            })
+            .join('');
+    }
+
+    clearHistory() {
+        if (confirm('Are you sure you want to clear all progress data? This cannot be undone.')) {
+            localStorage.removeItem('sessionHistory');
+            localStorage.removeItem('allTimeBestStreak');
+            this.loadDashboard();
         }
     }
 
@@ -888,7 +1147,6 @@ class ReadingGame {
             confetti.style.animationDelay = Math.random() * 2 + 's';
             confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
 
-            // Random shapes
             if (Math.random() > 0.5) {
                 confetti.style.borderRadius = '50%';
             }
@@ -896,7 +1154,6 @@ class ReadingGame {
             container.appendChild(confetti);
         }
 
-        // Clean up after animation
         setTimeout(() => {
             container.innerHTML = '';
         }, 5000);
@@ -905,12 +1162,11 @@ class ReadingGame {
     // ==================== Screen Management ====================
 
     showScreen(screenName) {
-        // Hide all screens
         this.elements.setupScreen.classList.remove('active');
         this.elements.gameScreen.classList.remove('active');
         this.elements.resultsScreen.classList.remove('active');
+        this.elements.dashboardScreen.classList.remove('active');
 
-        // Show requested screen
         switch (screenName) {
             case 'setup':
                 this.elements.setupScreen.classList.add('active');
@@ -921,6 +1177,10 @@ class ReadingGame {
             case 'results':
                 this.elements.resultsScreen.classList.add('active');
                 break;
+            case 'dashboard':
+                this.elements.dashboardScreen.classList.add('active');
+                this.loadDashboard();
+                break;
         }
     }
 
@@ -930,14 +1190,11 @@ class ReadingGame {
         const input = this.elements.wordInput.value.trim();
         if (!input) return;
 
-        // Create a simple name based on first word and count
         const words = input.split('\n').filter(w => w.trim());
         const listName = words[0].substring(0, 15) + (words.length > 1 ? ` (+${words.length - 1})` : '');
 
-        // Get existing lists
         const savedLists = JSON.parse(localStorage.getItem('readingGameLists') || '{}');
 
-        // Save with timestamp as key
         const key = Date.now().toString();
         savedLists[key] = {
             name: listName,
@@ -945,7 +1202,6 @@ class ReadingGame {
             date: new Date().toLocaleDateString()
         };
 
-        // Keep only last 10 lists
         const keys = Object.keys(savedLists).sort().reverse();
         if (keys.length > 10) {
             keys.slice(10).forEach(k => delete savedLists[k]);
@@ -976,12 +1232,10 @@ class ReadingGame {
                 <button class="delete-list" data-key="${key}">×</button>
             `;
 
-            // Load on click
             item.querySelector('.list-name').addEventListener('click', () => {
                 this.elements.wordInput.value = list.content;
             });
 
-            // Delete on button click
             item.querySelector('.delete-list').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.deleteList(key);
@@ -1010,6 +1264,38 @@ class ReadingGame {
         // Home button
         this.elements.homeBtn.addEventListener('click', () => this.goHome());
 
+        // Sound toggle
+        this.elements.soundToggle.addEventListener('change', () => {
+            this.soundEnabled = this.elements.soundToggle.checked;
+            localStorage.setItem('soundEnabled', this.soundEnabled.toString());
+            this.updateGameSoundToggle();
+        });
+
+        this.elements.gameSoundToggle.addEventListener('click', () => {
+            this.soundEnabled = !this.soundEnabled;
+            this.elements.soundToggle.checked = this.soundEnabled;
+            localStorage.setItem('soundEnabled', this.soundEnabled.toString());
+            this.updateGameSoundToggle();
+        });
+
+        // Difficulty buttons
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setDifficulty(btn.dataset.difficulty);
+            });
+        });
+
+        // Pre-made lists
+        document.querySelectorAll('.premade-list-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const listId = btn.dataset.list;
+                const list = this.premadeLists[listId];
+                if (list) {
+                    this.elements.wordInput.value = list.words.join('\n');
+                }
+            });
+        });
+
         // Puzzle image upload
         this.elements.uploadPuzzleBtn.addEventListener('click', () => {
             this.elements.puzzleImageInput.click();
@@ -1021,23 +1307,49 @@ class ReadingGame {
 
         // Play again
         this.elements.playAgainBtn.addEventListener('click', () => {
-            this.showScreen('game');
+            this.shuffleArray(this.words);
             this.currentIndex = 0;
             this.score = 0;
             this.skipped = 0;
             this.missedWords = [];
+            this.currentStreak = 0;
+            this.bestStreak = 0;
+            this.wrongInARow = 0;
             this.revealedPieces = 0;
             this.isGameActive = true;
             this.updateScore();
+            this.updateStreakDisplay();
             this.elements.total.textContent = this.words.length;
             this.resetPuzzle();
+            this.showScreen('game');
+            this.showBuddyMessage('start');
             this.showCurrentWord();
             this.startListening();
+        });
+
+        // Practice missed words
+        this.elements.practiceMissedBtn.addEventListener('click', () => {
+            if (this.missedWords.length > 0) {
+                this.startGame(this.missedWords);
+            }
         });
 
         // New words
         this.elements.newWordsBtn.addEventListener('click', () => {
             this.showScreen('setup');
+        });
+
+        // Dashboard
+        this.elements.dashboardBtn.addEventListener('click', () => {
+            this.showScreen('dashboard');
+        });
+
+        this.elements.dashboardBackBtn.addEventListener('click', () => {
+            this.showScreen('setup');
+        });
+
+        this.elements.clearHistoryBtn.addEventListener('click', () => {
+            this.clearHistory();
         });
 
         // Enter key in textarea starts game
@@ -1049,15 +1361,16 @@ class ReadingGame {
         });
     }
 
+    updateGameSoundToggle() {
+        this.elements.gameSoundToggle.textContent = this.soundEnabled ? '🔊' : '🔇';
+    }
+
     // ==================== Home Button ====================
 
     goHome() {
-        // Stop the game
         this.isGameActive = false;
         this.stopListening();
         clearInterval(this.timerInterval);
-
-        // Go back to setup screen
         this.showScreen('setup');
     }
 
@@ -1067,10 +1380,8 @@ class ReadingGame {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Update filename display
         this.elements.puzzleFilename.textContent = file.name;
 
-        // Read and preview the image
         const reader = new FileReader();
         reader.onload = (e) => {
             this.puzzleImage = e.target.result;
@@ -1090,19 +1401,16 @@ class ReadingGame {
         this.puzzlePieces = [];
         this.revealedPieces = 0;
 
-        // Calculate grid size based on number of words
         const totalPieces = this.words.length;
         const gridSize = Math.ceil(Math.sqrt(totalPieces));
 
         this.elements.puzzleGrid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
         this.elements.puzzleGrid.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
 
-        // Create puzzle pieces
         for (let i = 0; i < gridSize * gridSize; i++) {
             const piece = document.createElement('div');
             piece.className = 'puzzle-piece';
 
-            // Calculate background position for this piece
             const row = Math.floor(i / gridSize);
             const col = i % gridSize;
             const bgPosX = (col / (gridSize - 1)) * 100;
@@ -1120,7 +1428,6 @@ class ReadingGame {
     revealPuzzlePiece() {
         if (!this.puzzleImage || this.revealedPieces >= this.puzzlePieces.length) return;
 
-        // Find the next unrevealed piece
         const piece = this.puzzlePieces[this.revealedPieces];
         if (piece) {
             piece.classList.add('revealed');
