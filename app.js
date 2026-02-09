@@ -67,13 +67,13 @@ class ReadingGame {
 
         // Character buddy messages
         this.buddyMessages = {
-            start: ['Let\'s go!', 'You can do it!', 'I believe in you!'],
-            correct: ['Great job!', 'Awesome!', 'You\'re amazing!', 'Perfect!', 'Way to go!'],
-            streak3: ['🔥 On fire!', '3 in a row!', 'Keep it up!'],
-            streak5: ['⚡ Incredible!', '5 streak!', 'Unstoppable!'],
-            streak10: ['🌟 SUPERSTAR!', '10 streak!', 'LEGENDARY!'],
-            struggling: ['You got this!', 'Take your time!', 'Keep trying!', 'Almost there!'],
-            timeout: ['No worries!', 'Try the next one!', 'You\'ll get it!']
+            start: ['Ready!', 'Let\'s go', 'Here we go'],
+            correct: ['Nice!', 'Got it!', 'Correct!', 'Perfect!', 'Well done'],
+            streak3: ['3 in a row!', 'Keep going!', 'On a roll'],
+            streak5: ['5 streak!', 'Impressive!', 'Strong run'],
+            streak10: ['10 streak!', 'Incredible!', 'Unstoppable'],
+            struggling: ['Take your time', 'Keep going', 'Almost there'],
+            timeout: ['No worries', 'Next one!', 'Keep going']
         };
 
         // Audio context for sounds
@@ -240,17 +240,17 @@ class ReadingGame {
         let emoji, text;
 
         if (count === 5) {
-            emoji = '⭐';
-            text = '5 Correct!';
+            emoji = '5';
+            text = 'Milestone!';
         } else if (count === 10) {
-            emoji = '🌟';
-            text = '10 Correct!';
+            emoji = '10';
+            text = 'Great streak!';
         } else if (count === 15) {
-            emoji = '🏆';
-            text = '15 Correct!';
+            emoji = '15';
+            text = 'Impressive!';
         } else if (count === 20) {
-            emoji = '👑';
-            text = '20 Correct!';
+            emoji = '20';
+            text = 'Outstanding!';
         } else {
             return;
         }
@@ -884,7 +884,7 @@ class ReadingGame {
             this.showMilestone(this.score);
         }
 
-        this.elements.feedback.textContent = '🎉 Awesome! Great job!';
+        this.elements.feedback.textContent = 'Correct!';
         this.elements.feedback.className = 'feedback success';
         this.elements.wordDisplay.classList.add('success');
 
@@ -977,15 +977,15 @@ class ReadingGame {
         const percentage = (this.score / this.words.length) * 100;
         let message = '';
         if (percentage === 100) {
-            message = "Perfect! You're a Reading Superstar! ⭐";
+            message = "Perfect score!";
         } else if (percentage >= 80) {
-            message = "Amazing work! You're a Reading Star! 🌟";
+            message = "Excellent work!";
         } else if (percentage >= 60) {
-            message = "Great job! Keep practicing! 👏";
+            message = "Good progress, keep practicing.";
         } else if (percentage >= 40) {
-            message = "Good effort! Practice makes perfect! 💪";
+            message = "Keep at it, you're improving.";
         } else {
-            message = "Nice try! Let's practice more! 📚";
+            message = "Practice makes perfect.";
         }
         this.elements.scoreMessage.textContent = message;
 
@@ -1112,7 +1112,7 @@ class ReadingGame {
         container.style.left = rect.left + rect.width / 2 + 'px';
         container.style.top = rect.top + rect.height / 2 + 'px';
 
-        const stars = ['⭐', '✨', '🌟', '💫'];
+        const stars = ['·', '•', '○', '◦'];
         const angles = [0, 45, 90, 135, 180, 225, 270, 315];
 
         angles.forEach(angle => {
@@ -1136,7 +1136,7 @@ class ReadingGame {
     }
 
     createConfetti() {
-        const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#fd79a8', '#6c5ce7'];
+        const colors = ['#4F46E5', '#3B82F6', '#0EA5E9', '#10B981', '#6366F1', '#8B5CF6'];
         const container = this.elements.confettiContainer;
 
         for (let i = 0; i < 50; i++) {
@@ -1362,7 +1362,8 @@ class ReadingGame {
     }
 
     updateGameSoundToggle() {
-        this.elements.gameSoundToggle.textContent = this.soundEnabled ? '🔊' : '🔇';
+        this.elements.gameSoundToggle.textContent = this.soundEnabled ? '♪' : '♪';
+        this.elements.gameSoundToggle.style.opacity = this.soundEnabled ? '1' : '0.4';
     }
 
     // ==================== Home Button ====================
